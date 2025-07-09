@@ -11,6 +11,7 @@ const loading = ref(false)
 const loadingMore = ref(false)
 const showModal = ref(false)
 const selectedCar = ref(null)
+const error = ref(null)
 
 // 分页相关
 const currentPage = ref(1)
@@ -31,11 +32,15 @@ const filteredCars = computed(() => {
 
 // 获取车辆列表
 const fetchCars = async (page = 1, append = false) => {
+  console.log('开始获取车辆数据，页码:', page, '追加模式:', append)
+  
   if (append) {
     loadingMore.value = true
   } else {
     loading.value = true
   }
+  
+  error.value = null
   
   try {
     const params = {
@@ -48,22 +53,34 @@ const fetchCars = async (page = 1, append = false) => {
       params.region = selectedRegion.value
     }
     
+    console.log('请求参数:', params)
     const response = await axios.get('/api/cars', { params })
+    console.log('API响应:', response.data)
     
     if (append) {
       // 追加数据（无限滚动）
       cars.value = [...cars.value, ...response.data.cars]
     } else {
       // 替换数据（初始加载或筛选）
-      cars.value = response.data.cars
+      cars.value = response.data.cars || []
     }
     
-    total.value = response.data.total
-    hasMore.value = response.data.has_more
-    currentPage.value = response.data.page
+    total.value = response.data.total || 0
+    hasMore.value = response.data.has_more || false
+    currentPage.value = response.data.page || page
     
-  } catch (error) {
-    console.error('获取车辆列表失败:', error)
+    console.log('数据更新完成，车辆数量:', cars.value.length, '总数:', total.value)
+    
+  } catch (err) {
+    console.error('获取车辆列表失败:', err)
+    error.value = err.response?.data?.detail || err.message || '网络请求失败'
+    
+    // 错误时重置数据
+    if (!append) {
+      cars.value = []
+      total.value = 0
+      hasMore.value = false
+    }
   } finally {
     loading.value = false
     loadingMore.value = false
@@ -92,7 +109,8 @@ const handleScroll = () => {
 }
 
 // 监听区域变化
-watch(selectedRegion, () => {
+watch(selectedRegion, (newRegion, oldRegion) => {
+  console.log('区域变化:', oldRegion, '->', newRegion)
   // 重置分页状态
   currentPage.value = 1
   hasMore.value = true
@@ -111,7 +129,13 @@ const handleCloseModal = () => {
   selectedCar.value = null
 }
 
+const retryLoad = () => {
+  error.value = null
+  fetchCars()
+}
+
 onMounted(() => {
+  console.log('HomeView mounted')
   // 检查会话状态
   const hasAccess = sessionStorage.getItem('homepage_access')
   const accessTime = sessionStorage.getItem('homepage_access_time')
@@ -138,7 +162,7 @@ onUnmounted(() => {
       <p class="text-gray-600">选择区域查看对应车辆信息</p>
       
       <!-- 统计信息 -->
-      <div v-if="!loading" class="mt-4 text-sm text-gray-500">
+      <div v-if="!loading && !error" class="mt-4 text-sm text-gray-500">
         共 {{ total }} 辆车辆
         <span v-if="selectedRegion && selectedRegion !== '全部'">
           （{{ selectedRegion }}地区）
@@ -156,6 +180,27 @@ onUnmounted(() => {
       @update:selected="selectedRegion = $event"
     />
 
+    <!-- 错误提示 -->
+    <div v-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
+      <div class="flex items-center">
+        <div class="text-red-400 mr-3">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-sm font-medium text-red-800">加载失败</h3>
+          <p class="text-sm text-red-700 mt-1">{{ error }}</p>
+        </div>
+        <button 
+          @click="retryLoad"
+          class="ml-4 bg-red-100 text-red-800 px-3 py-1 rounded-md text-sm hover:bg-red-200 transition-colors"
+        >
+          重试
+        </button>
+      </div>
+    </div>
+
     <!-- 加载状态 -->
     <div v-if="loading" class="flex justify-center py-12">
       <div class="text-center">
@@ -166,13 +211,13 @@ onUnmounted(() => {
 
     <!-- 车辆网格 -->
     <CarGrid
-      v-else
+      v-else-if="!error"
       :cars="filteredCars"
       @car-click="handleCarClick"
     />
 
     <!-- 加载更多指示器 -->
-    <div v-if="!loading && cars.length > 0" class="text-center py-8">
+    <div v-if="!loading && !error && cars.length > 0" class="text-center py-8">
       <div v-if="loadingMore" class="flex justify-center items-center">
         <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
         <span class="text-gray-600">加载更多...</span>
@@ -194,7 +239,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 空状态 -->
-    <div v-if="!loading && cars.length === 0" class="text-center py-12">
+    <div v-if="!loading && !error && cars.length === 0" class="text-center py-12">
       <div class="text-gray-400 text-4xl mb-4">🚗</div>
       <h3 class="text-lg font-medium text-gray-900 mb-2">暂无车辆数据</h3>
       <p class="text-gray-500">
