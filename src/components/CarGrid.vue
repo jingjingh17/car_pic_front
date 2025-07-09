@@ -13,23 +13,6 @@ defineEmits(['car-click'])
 const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('zh-CN')
 }
-
-// 图片错误处理
-const imageErrors = ref(new Set())
-
-const getImageUrl = (car) => {
-  // BASE64存储直接返回image_base64数据
-  return car.image_base64
-}
-
-const handleImageError = (car) => {
-  imageErrors.value.add(car.id)
-  console.error('图片加载失败:', car.id)
-}
-
-const isValidBase64Image = (base64String) => {
-  return base64String && base64String.startsWith('data:image/')
-}
 </script>
 
 <template>
@@ -46,26 +29,14 @@ const isValidBase64Image = (base64String) => {
         @click="$emit('car-click', car)"
         class="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer group"
       >
-        <!-- 图片 -->
-        <div class="aspect-w-16 aspect-h-12 bg-gray-100 overflow-hidden relative">
-          <img
-            v-if="isValidBase64Image(car.image_base64) && !imageErrors.has(car.id)"
-            :src="getImageUrl(car)"
-            :alt="`${car.region}车辆图片`"
-            class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-200"
-            loading="lazy"
-            @error="handleImageError(car)"
-          />
-          
-          <!-- 图片加载失败或无效时显示 -->
-          <div v-if="!isValidBase64Image(car.image_base64) || imageErrors.has(car.id)" class="absolute inset-0 flex items-center justify-center bg-gray-100">
+        <!-- 图片占位符 -->
+        <div class="aspect-w-16 aspect-h-12 bg-gradient-to-br from-blue-50 to-blue-100 overflow-hidden relative">
+          <div class="absolute inset-0 flex items-center justify-center">
             <div class="text-center">
-              <div class="text-gray-400 text-2xl mb-2">📷</div>
-              <p class="text-gray-500 text-sm">图片无法显示</p>
+              <div class="text-blue-400 text-4xl mb-2">🚗</div>
+              <p class="text-blue-600 text-sm font-medium">点击查看图片</p>
             </div>
           </div>
-          
-
         </div>
         
         <!-- 信息 -->

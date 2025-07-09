@@ -1,7 +1,8 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import axios from 'axios'
 
-defineProps({
+const props = defineProps({
   car: {
     type: Object,
     required: true
@@ -10,18 +11,49 @@ defineProps({
 
 defineEmits(['close'])
 
+const carDetails = ref(null)
+const imageLoading = ref(true)
+const imageError = ref(false)
+
 const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('zh-CN')
 }
 
-const getImageUrl = (car) => {
-  // BASE64存储直接返回image_base64数据
-  return car.image_base64
+const getImageUrl = (carData) => {
+  return carData?.image_base64
 }
 
 const isValidBase64Image = (base64String) => {
   return base64String && base64String.startsWith('data:image/')
 }
+
+const handleImageError = () => {
+  imageError.value = true
+  imageLoading.value = false
+}
+
+// 获取车辆详情（包含图片）
+const fetchCarDetails = async () => {
+  try {
+    imageLoading.value = true
+    imageError.value = false
+    
+    const response = await axios.get(`/api/cars/${props.car.id}/details`)
+    carDetails.value = response.data
+    imageLoading.value = false
+  } catch (error) {
+    console.error('获取车辆详情失败:', error)
+    imageError.value = true
+    imageLoading.value = false
+  }
+}
+
+// 监听car属性变化，重新获取详情
+watch(() => props.car, (newCar) => {
+  if (newCar) {
+    fetchCarDetails()
+  }
+}, { immediate: true })
 </script>
 
 <template>
@@ -47,15 +79,24 @@ const isValidBase64Image = (base64String) => {
         <div class="space-y-6">
           <!-- 图片 -->
           <div class="text-center">
+            <!-- 图片加载中 -->
+            <div v-if="imageLoading" class="w-full max-w-lg mx-auto h-64 flex items-center justify-center bg-gray-100 rounded-lg">
+              <div class="text-center">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                <p class="text-gray-500 text-sm">加载图片中...</p>
+              </div>
+            </div>
+            
+            <!-- 图片显示 -->
             <img
-              v-if="isValidBase64Image(car.image_base64) && !imageError"
-              :src="getImageUrl(car)"
+              v-else-if="!imageError && carDetails && isValidBase64Image(carDetails.image_base64)"
+              :src="getImageUrl(carDetails)"
               :alt="`${car.region}车辆图片`"
               class="w-full max-w-lg mx-auto rounded-lg shadow-md"
-              @error="handleImageError(car)"
+              @error="handleImageError"
             />
             
-            <!-- 图片无效或加载失败时显示 -->
+            <!-- 图片加载失败 -->
             <div v-else class="w-full max-w-lg mx-auto h-64 flex items-center justify-center bg-gray-100 rounded-lg">
               <div class="text-center">
                 <div class="text-gray-400 text-2xl mb-2">📷</div>
