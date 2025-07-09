@@ -14,66 +14,37 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('zh-CN')
 }
 
-// 懒加载相关
-const imageObserver = ref(null)
+// 图片加载状态管理
 const loadingImages = ref(new Set())
 const loadedImages = ref(new Set())
 const errorImages = ref(new Set())
 
-// 创建Intersection Observer用于懒加载
-const createImageObserver = () => {
-  imageObserver.value = new IntersectionObserver(
-    async (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          const carId = entry.target.dataset.carId
-          const car = props.cars.find(c => c.id.toString() === carId)
-          
-          if (car && !loadingImages.value.has(carId) && !loadedImages.value.has(carId)) {
-            await loadThumbnail(car)
-          }
-          
-          imageObserver.value.unobserve(entry.target)
+// 预加载所有缩略图
+const preloadThumbnails = async () => {
+  for (const car of props.cars) {
+    const carId = car.id.toString()
+    
+    if (car.thumbnail_base64 && !loadedImages.value.has(carId) && !errorImages.value.has(carId)) {
+      loadingImages.value.add(carId)
+      
+      try {
+        // 创建图片对象来预加载
+        const img = new Image()
+        img.onload = () => {
+          loadedImages.value.add(carId)
+          loadingImages.value.delete(carId)
         }
+        img.onerror = () => {
+          errorImages.value.add(carId)
+          loadingImages.value.delete(carId)
+        }
+        img.src = car.thumbnail_base64
+      } catch (error) {
+        console.error('预加载缩略图失败:', error)
+        errorImages.value.add(carId)
+        loadingImages.value.delete(carId)
       }
-    },
-    {
-      rootMargin: '50px', // 提前50px开始加载
-      threshold: 0.1
     }
-  )
-}
-
-// 加载缩略图
-const loadThumbnail = async (car) => {
-  const carId = car.id.toString()
-  
-  if (loadingImages.value.has(carId) || loadedImages.value.has(carId)) {
-    return
-  }
-  
-  loadingImages.value.add(carId)
-  
-  try {
-    // 直接使用车辆数据中的缩略图
-    if (car.thumbnail_base64) {
-      loadedImages.value.add(carId)
-    } else {
-      errorImages.value.add(carId)
-    }
-  } catch (error) {
-    console.error('加载缩略图失败:', error)
-    errorImages.value.add(carId)
-  } finally {
-    loadingImages.value.delete(carId)
-  }
-}
-
-// 注册图片元素到observer
-const registerImageElement = (el, car) => {
-  if (el && imageObserver.value) {
-    el.dataset.carId = car.id.toString()
-    imageObserver.value.observe(el)
   }
 }
 
@@ -81,7 +52,11 @@ const registerImageElement = (el, car) => {
 const getImageStatus = (car) => {
   const carId = car.id.toString()
   
-  if (errorImages.value.has(carId) || !car.thumbnail_base64) {
+  if (!car.thumbnail_base64) {
+    return 'error'
+  }
+  
+  if (errorImages.value.has(carId)) {
     return 'error'
   }
   
@@ -102,14 +77,21 @@ const getThumbnailUrl = (car) => {
 }
 
 onMounted(() => {
-  createImageObserver()
+  // 组件挂载时立即预加载所有缩略图
+  preloadThumbnails()
 })
 
-onUnmounted(() => {
-  if (imageObserver.value) {
-    imageObserver.value.disconnect()
-  }
-})
+// 监听cars数据变化，重新预加载
+import { watch } from 'vue'
+watch(() => props.cars, () => {
+  // 清空之前的状态
+  loadingImages.value.clear()
+  loadedImages.value.clear()
+  errorImages.value.clear()
+  
+  // 重新预加载
+  preloadThumbnails()
+}, { deep: true })
 </script>
 
 <template>
@@ -128,28 +110,14 @@ onUnmounted(() => {
       >
         <!-- 图片区域 -->
         <div class="aspect-w-16 aspect-h-12 bg-gray-100 overflow-hidden relative h-48">
-          <!-- 待加载状态 -->
-          <div 
-            v-if="getImageStatus(car) === 'pending'"
-            ref="imageRef"
-            :data-car-id="car.id"
-            class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100"
-            @vue:mounted="(el) => registerImageElement(el, car)"
-          >
-            <div class="text-center">
-              <div class="text-gray-400 text-2xl mb-2">📷</div>
-              <p class="text-gray-500 text-sm">等待加载...</p>
-            </div>
-          </div>
-          
           <!-- 加载中状态 -->
           <div 
-            v-else-if="getImageStatus(car) === 'loading'"
+            v-if="getImageStatus(car) === 'loading'"
             class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100"
           >
             <div class="text-center">
               <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              <p class="text-blue-600 text-sm">压缩中...</p>
+              <p class="text-blue-600 text-sm">加载中...</p>
             </div>
           </div>
           
@@ -178,7 +146,7 @@ onUnmounted(() => {
             v-if="getImageStatus(car) === 'loaded'"
             class="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            {{ getThumbnailUrl(car).length }}KB
+            {{ Math.round(getThumbnailUrl(car).length / 1024) }}KB
           </div>
         </div>
         
