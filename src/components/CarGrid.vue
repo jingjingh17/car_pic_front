@@ -1,6 +1,5 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import axios from 'axios'
 
 const props = defineProps({
   cars: {
@@ -20,7 +19,6 @@ const imageObserver = ref(null)
 const loadingImages = ref(new Set())
 const loadedImages = ref(new Set())
 const errorImages = ref(new Set())
-const thumbnailData = ref(new Map())
 
 // 创建Intersection Observer用于懒加载
 const createImageObserver = () => {
@@ -57,12 +55,8 @@ const loadThumbnail = async (car) => {
   loadingImages.value.add(carId)
   
   try {
-    // 调用后端API获取缩略图
-    const response = await axios.get(`/api/cars/${car.id}/thumbnail`)
-    const thumbnail = response.data.thumbnail_base64
-    
-    if (thumbnail) {
-      thumbnailData.value.set(carId, thumbnail)
+    // 直接使用车辆数据中的缩略图
+    if (car.thumbnail_base64) {
       loadedImages.value.add(carId)
     } else {
       errorImages.value.add(carId)
@@ -87,11 +81,11 @@ const registerImageElement = (el, car) => {
 const getImageStatus = (car) => {
   const carId = car.id.toString()
   
-  if (errorImages.value.has(carId)) {
+  if (errorImages.value.has(carId) || !car.thumbnail_base64) {
     return 'error'
   }
   
-  if (loadedImages.value.has(carId) && thumbnailData.value.has(carId)) {
+  if (loadedImages.value.has(carId)) {
     return 'loaded'
   }
   
@@ -104,8 +98,7 @@ const getImageStatus = (car) => {
 
 // 获取缩略图URL
 const getThumbnailUrl = (car) => {
-  const carId = car.id.toString()
-  return thumbnailData.value.get(carId) || ''
+  return car.thumbnail_base64 || ''
 }
 
 onMounted(() => {
