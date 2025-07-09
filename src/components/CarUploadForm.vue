@@ -6,7 +6,6 @@ const emit = defineEmits(['close', 'car-added'])
 
 const form = ref({
   region: '',
-  password: '',
   contact: '',
   description: '',
   image: null
@@ -20,8 +19,6 @@ const regions = ['福田', '罗湖', '南山', '龙华', '龙岗', '宝安', '�
 
 const canSubmit = computed(() => {
   return form.value.region && 
-         form.value.password && 
-         form.value.contact && 
          form.value.image && 
          !loading.value
 })
@@ -49,7 +46,6 @@ const submitForm = async () => {
   try {
     const formData = new FormData()
     formData.append('region', form.value.region)
-    formData.append('password', form.value.password)
     formData.append('contact', form.value.contact)
     formData.append('description', form.value.description)
     formData.append('image', form.value.image)
@@ -73,7 +69,6 @@ const submitForm = async () => {
 const resetForm = () => {
   form.value = {
     region: '',
-    password: '',
     contact: '',
     description: '',
     image: null
@@ -122,28 +117,14 @@ const handleClose = () => {
           </select>
         </div>
 
-        <!-- 密码设置 -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">访问密码 *</label>
-          <input
-            v-model="form.password"
-            type="password"
-            placeholder="设置查看密码"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            required
-          />
-          <p class="text-sm text-gray-500 mt-1">用户查看车辆详情时需要输入此密码</p>
-        </div>
-
         <!-- 联系方式 -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">联系方式 *</label>
+          <label class="block text-sm font-medium text-gray-700 mb-2">联系方式</label>
           <input
             v-model="form.contact"
             type="text"
             placeholder="手机号码或微信号"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            required
           />
         </div>
 
