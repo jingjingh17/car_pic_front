@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { getCachedThumbnail, isValidBase64Image, getImageSizeKB } from '../utils/imageUtils.js'
+import axios from 'axios'
 
 const props = defineProps({
   cars: {
@@ -57,9 +57,11 @@ const loadThumbnail = async (car) => {
   loadingImages.value.add(carId)
   
   try {
-    if (isValidBase64Image(car.image_base64)) {
-      // 生成并缓存缩略图
-      const thumbnail = await getCachedThumbnail(carId, car.image_base64)
+    // 调用后端API获取缩略图
+    const response = await axios.get(`/api/cars/${car.id}/thumbnail`)
+    const thumbnail = response.data.thumbnail_base64
+    
+    if (thumbnail) {
       thumbnailData.value.set(carId, thumbnail)
       loadedImages.value.add(carId)
     } else {
@@ -85,7 +87,7 @@ const registerImageElement = (el, car) => {
 const getImageStatus = (car) => {
   const carId = car.id.toString()
   
-  if (errorImages.value.has(carId) || !isValidBase64Image(car.image_base64)) {
+  if (errorImages.value.has(carId)) {
     return 'error'
   }
   
@@ -180,10 +182,10 @@ onUnmounted(() => {
           
           <!-- 图片大小指示器（开发时可见） -->
           <div 
-            v-if="getImageStatus(car) === 'loaded' && isValidBase64Image(car.image_base64)"
+            v-if="getImageStatus(car) === 'loaded'"
             class="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            {{ getImageSizeKB(getThumbnailUrl(car)) }}KB
+            {{ getThumbnailUrl(car).length }}KB
           </div>
         </div>
         
