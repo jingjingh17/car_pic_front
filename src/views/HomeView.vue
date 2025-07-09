@@ -45,6 +45,11 @@ const handleCloseModal = () => {
 }
 
 onMounted(() => {
+  // 检查会话状态
+  const hasAccess = sessionStorage.getItem('homepage_access')
+  const accessTime = sessionStorage.getItem('homepage_access_time')
+  console.log('HomeView 加载, 会话状态:', { hasAccess, accessTime })
+  
   fetchCars()
 })
 </script>

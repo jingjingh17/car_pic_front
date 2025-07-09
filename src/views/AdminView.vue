@@ -5,12 +5,14 @@ import axios from 'axios'
 import CarUploadForm from '../components/CarUploadForm.vue'
 import CarEditForm from '../components/CarEditForm.vue'
 import AdminCarList from '../components/AdminCarList.vue'
+import HomepagePasswordSettings from '../components/HomepagePasswordSettings.vue'
 
 const router = useRouter()
 const cars = ref([])
 const loading = ref(false)
 const showUploadForm = ref(false)
 const showEditForm = ref(false)
+const showPasswordSettings = ref(false)
 const editingCar = ref(null)
 
 const fetchCars = async () => {
@@ -67,6 +69,15 @@ onMounted(() => {
         <p class="text-gray-600 mt-1">管理车辆图片和信息</p>
       </div>
       <div class="flex space-x-4">
+        <button
+          @click="showPasswordSettings = true"
+          class="bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center"
+        >
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+          </svg>
+          首页密码
+        </button>
         <button
           @click="showUploadForm = true"
           class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center"
@@ -168,6 +179,12 @@ onMounted(() => {
       :cars="cars"
       @car-deleted="handleCarDeleted"
       @car-updated="handleEditCar"
+    />
+
+    <!-- 首页密码设置模态框 -->
+    <HomepagePasswordSettings
+      v-if="showPasswordSettings"
+      @close="showPasswordSettings = false"
     />
 
     <!-- 上传表单模态框 -->

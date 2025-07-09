@@ -6,6 +6,7 @@ import router from './router'
 import axios from 'axios'
 
 // 配置axios
+// axios.defaults.baseURL = 'http://localhost:8000'
 axios.defaults.baseURL = 'https://carpicback-production.up.railway.app'
 axios.defaults.headers.common['Content-Type'] = 'application/json'
 

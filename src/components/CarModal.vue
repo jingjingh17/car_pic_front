@@ -1,93 +1,37 @@
 <script setup>
-import { ref, computed } from 'vue'
-import axios from 'axios'
+import { computed } from 'vue'
 
-const props = defineProps({
+defineProps({
   car: {
     type: Object,
     required: true
   }
 })
 
-const password = ref('')
-const isVerified = ref(false)
-const loading = ref(false)
-const error = ref('')
-const carDetails = ref(null)
-const imageError = ref(false)
+defineEmits(['close'])
 
-const canSubmit = computed(() => {
-  return password.value.trim().length > 0 && !loading.value
-})
+const formatDate = (dateString) => {
+  return new Date(dateString).toLocaleDateString('zh-CN')
+}
 
-// 图片URL处理
 const getImageUrl = (car) => {
-  if (!car || !car.image_base64) return ''
+  // BASE64存储直接返回image_base64数据
   return car.image_base64
 }
 
 const isValidBase64Image = (base64String) => {
   return base64String && base64String.startsWith('data:image/')
 }
-
-const handleImageError = (car) => {
-  imageError.value = true
-  console.error('图片加载失败:', car?.id)
-}
-
-const verifyPassword = async () => {
-  if (!canSubmit.value) return
-
-  loading.value = true
-  error.value = ''
-  
-  try {
-    await axios.post(`/api/cars/${props.car.id}/verify`, {
-      password: password.value
-    })
-    
-    // 验证成功后获取详情
-    const response = await axios.get(`/api/cars/${props.car.id}/details`)
-    carDetails.value = response.data
-    isVerified.value = true
-    
-  } catch (err) {
-    error.value = err.response?.data?.detail || '密码错误'
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleSubmit = (e) => {
-  e.preventDefault()
-  verifyPassword()
-}
-
-const emit = defineEmits(['close'])
-
-const handleClose = () => {
-  password.value = ''
-  isVerified.value = false
-  error.value = ''
-  carDetails.value = null
-  imageError.value = false
-  emit('close')
-}
 </script>
 
 <template>
   <!-- 模态框背景 -->
-  <div class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-4 z-50" @click="$emit('close')">
-    <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] flex flex-col" @click.stop>
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" @click="$emit('close')">
+    <div class="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" @click.stop>
       <!-- 头部 -->
-      <div class="flex items-center justify-between p-6 border-b flex-shrink-0">
-        <h3 class="text-lg font-semibold text-gray-900">
-          {{ car.region }} - 车辆详情
-          <span class="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            BASE64
-          </span>
-        </h3>
-        <button
+      <div class="flex items-center justify-between p-6 border-b border-gray-200">
+        <h2 class="text-xl font-semibold text-gray-900">车辆详情</h2>
+        <button 
           @click="$emit('close')"
           class="text-gray-400 hover:text-gray-600 transition-colors"
         >
@@ -99,109 +43,81 @@ const handleClose = () => {
 
       <!-- 内容 - 可滚动区域 -->
       <div class="p-6 overflow-y-auto flex-1">
-        <!-- 未验证状态 - 密码输入 -->
-        <div v-if="!isVerified" class="text-center">
-          <div class="mb-6 relative">
+        <!-- 车辆详情 -->
+        <div class="space-y-6">
+          <!-- 图片 -->
+          <div class="text-center">
             <img
-              v-if="isValidBase64Image(car.image_base64)"
+              v-if="isValidBase64Image(car.image_base64) && !imageError"
               :src="getImageUrl(car)"
               :alt="`${car.region}车辆图片`"
-              class="w-full max-w-md mx-auto rounded-lg blur-lg"
+              class="w-full max-w-lg mx-auto rounded-lg shadow-md"
               @error="handleImageError(car)"
             />
             
             <!-- 图片无效或加载失败时显示 -->
-            <div v-if="!isValidBase64Image(car.image_base64) || imageError" class="w-full max-w-md mx-auto h-64 flex items-center justify-center bg-gray-100 rounded-lg">
+            <div v-else class="w-full max-w-lg mx-auto h-64 flex items-center justify-center bg-gray-100 rounded-lg">
               <div class="text-center">
                 <div class="text-gray-400 text-2xl mb-2">📷</div>
                 <p class="text-gray-500 text-sm">图片无法显示</p>
               </div>
             </div>
-            
-            <p class="mt-4 text-gray-600">请输入密码查看完整信息</p>
           </div>
 
-          <form @submit="handleSubmit" class="max-w-sm mx-auto">
-            <div class="mb-4">
-              <input
-                v-model="password"
-                type="password"
-                placeholder="请输入密码"
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                :disabled="loading"
-              />
-              <p v-if="error" class="mt-2 text-sm text-red-600">{{ error }}</p>
+          <!-- 车辆信息 -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-4">
+              <div class="bg-gray-50 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-900 mb-2">基本信息</h4>
+                <div class="space-y-2 text-sm">
+                  <div class="flex justify-between">
+                    <span class="text-gray-600">车辆编号:</span>
+                    <span class="font-medium">#{{ car.id }}</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-gray-600">所在区域:</span>
+                    <span class="font-medium">{{ car.region }}</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-gray-600">发布时间:</span>
+                    <span class="font-medium">{{ new Date(car.created_at).toLocaleDateString('zh-CN') }}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            <button
-              type="submit"
-              :disabled="!canSubmit"
-              class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            >
-              <span v-if="loading" class="flex items-center justify-center">
-                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                验证中...
-              </span>
-              <span v-else>确认</span>
-            </button>
-          </form>
-        </div>
 
-        <!-- 已验证状态 - 显示详细信息 -->
-        <div v-else class="space-y-6">
-          <!-- 图片 -->
-          <div class="text-center relative">
-            <img
-              v-if="isValidBase64Image(carDetails.image_base64)"
-              :src="getImageUrl(carDetails)"
-              :alt="`${carDetails.region}车辆图片`"
-              class="w-full max-w-lg mx-auto rounded-lg shadow-lg"
-              @error="handleImageError(carDetails)"
-            />
-            
-            <!-- 图片无效或加载失败时显示 -->
-            <div v-if="!isValidBase64Image(carDetails.image_base64) || imageError" class="w-full max-w-lg mx-auto h-96 flex items-center justify-center bg-gray-100 rounded-lg">
-              <div class="text-center">
-                <div class="text-gray-400 text-3xl mb-2">📷</div>
-                <p class="text-gray-500 text-sm">图片无法显示</p>
+            <div class="space-y-4">
+              <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 class="font-medium text-gray-900 mb-3 flex items-center">
+                  <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+                  </svg>
+                  联系方式
+                </h4>
+                <div class="text-center py-2">
+                  <span class="text-blue-800 font-bold text-xl">{{ car.contact || '暂无联系方式' }}</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- 详细信息 -->
-          <div class="bg-gray-50 rounded-lg p-6 space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">区域</label>
-                <p class="text-sm text-gray-900">{{ carDetails.region }}</p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">联系方式</label>
-                <p class="text-sm text-gray-900">{{ carDetails.contact }}</p>
-              </div>
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
-              <p class="text-sm text-gray-900">{{ carDetails.description || '暂无描述' }}</p>
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">创建时间</label>
-              <p class="text-sm text-gray-900">{{ new Date(carDetails.created_at).toLocaleString('zh-CN') }}</p>
-            </div>
+          <!-- 车辆描述 -->
+          <div v-if="car.description" class="bg-gray-50 p-4 rounded-lg">
+            <h4 class="font-medium text-gray-900 mb-2">车辆描述</h4>
+            <p class="text-gray-700 text-sm leading-relaxed">{{ car.description }}</p>
+          </div>
+          <div v-else class="bg-gray-50 p-4 rounded-lg">
+            <h4 class="font-medium text-gray-900 mb-2">车辆描述</h4>
+            <p class="text-gray-500 text-sm italic">暂无详细描述</p>
           </div>
         </div>
       </div>
 
-      <!-- 底部 -->
-      <div class="flex justify-end p-6 border-t flex-shrink-0">
+      <!-- 底部操作 -->
+      <div class="px-6 py-4 bg-gray-50 border-t flex justify-end">
         <button
-          @click="handleClose"
-          class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          @click="$emit('close')"
+          class="bg-gray-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-gray-700 transition-colors"
         >
           关闭
         </button>
